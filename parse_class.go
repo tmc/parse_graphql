@@ -51,7 +51,7 @@ func (p *ParseClass) GraphQLTypeInfo() schema.GraphQLTypeInfo {
 			Name:        fn,
 			Description: fmt.Sprintf("Accessor for %s field (%v)", fn, fieldSchema.Type),
 			Func: func(r resolver.Resolver, f *graphql.Field) (interface{}, error) {
-				partial, err := p.resolve(fn)
+				partial, err := p.resolve(r, fn)
 				if err != nil {
 					return nil, err
 				}
@@ -62,10 +62,32 @@ func (p *ParseClass) GraphQLTypeInfo() schema.GraphQLTypeInfo {
 	return ti
 }
 
-func (p *ParseClass) resolve(fieldName string) (interface{}, error) {
+func (p *ParseClass) resolve(r resolver.Resolver, fieldName string) (interface{}, error) {
 	fieldInfo := p.class.Fields[fieldName]
 	if fieldInfo.Type == "Pointer" {
 		pc, err := NewParseClass(p.client, fieldInfo.TargetClass, p.schema)
+		if err != nil {
+			return nil, err
+		}
+		objectID := p.Data[fieldName].(map[string]interface{})["objectId"].(string)
+		err = pc.client.GetClass(fieldInfo.TargetClass, objectID, &pc.Data)
+		return pc, err
+	} else if fieldInfo.Type == "ReversePointer" {
+		pc, err := NewParseClass(p.client, fieldInfo.TargetClass, p.schema)
+		fieldName := fieldName[len(fieldInfo.TargetClass)+1:]
+		// TODO(tmc): optimize
+		query := []byte(fmt.Sprintf(`{"__type":"Pointer","className":"%s","objectId":"%s"}`,
+			p.class.ClassName,
+			p.Data["objectId"]))
+		queryEncoded := json.RawMessage(query)
+		return pc.get(r, &graphql.Field{
+			Arguments: []graphql.Argument{
+				{
+					Name:  fieldName,
+					Value: &queryEncoded,
+				},
+			},
+		})
 		if err != nil {
 			return nil, err
 		}

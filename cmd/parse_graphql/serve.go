@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 )
 import (
 	"github.com/tmc/graphql/executor"
@@ -37,9 +38,13 @@ func (c *ServeOptions) Execute(args []string) error {
 		return err
 	}
 	mClient := client.WithMasterKey(c.ParseMasterKey)
+	client.TraceOn(log.New(os.Stdout, "[parse]", log.LstdFlags))
 	classes, err := mClient.GetFullSchema()
 	if err != nil {
 		return fmt.Errorf("error fetching parse app schema: %v", err)
+	}
+	if err := parse_graphql.DecorateSchema(classes); err != nil {
+		return err
 	}
 	for _, class := range classes {
 		parseClass, err := parse_graphql.NewParseClass(client, class.ClassName, classes)
