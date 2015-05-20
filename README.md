@@ -9,13 +9,14 @@ Usage:
   parse_graphql [OPTIONS] serve [serve-OPTIONS]
 
 Global options:
-  -v, --verbose        Be verbose
+  -v, --verbose         Be verbose
 
 Help Options:
-  -h, --help           Show this help message
+  -h, --help            Show this help message
 
 [serve command options]
-      -l, --listen=    Listen address (:8080)
-      -a, --appID=     Parse Application ID [$PARSE_APPLICATION_ID]
-      -m, --masterKey= Parse Master Key [$PARSE_MASTER_KEY]
+      -l, --listen=     Listen address (:8080)
+      -a, --appID=      Parse Application ID [$PARSE_APPLICATION_ID]
+      -m, --masterKey=  Parse Master Key [$PARSE_MASTER_KEY]
+      -w, --restApiKey= Parse REST API Key [$PARSE_REST_API_KEY]
 ```
