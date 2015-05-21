@@ -39,7 +39,7 @@ func (p *ParseClass) GraphQLTypeInfo() schema.GraphQLTypeInfo {
 				Name:        p.class.ClassName,
 				Description: fmt.Sprintf("Root call to fetch %s", className),
 				Func:        p.get,
-				IsRootCall:  true,
+				IsRoot:      true,
 			},
 		},
 	}
