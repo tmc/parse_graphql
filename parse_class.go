@@ -3,11 +3,14 @@ package parse_graphql
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 
 	"github.com/tmc/graphql"
 	"github.com/tmc/graphql/executor/resolver"
+	"github.com/tmc/graphql/executor/tracer"
 	"github.com/tmc/graphql/schema"
 	"github.com/tmc/parse"
+	"golang.org/x/net/context"
 )
 
 type ParseClass struct {
@@ -37,7 +40,7 @@ func (p *ParseClass) GraphQLTypeInfo() schema.GraphQLTypeInfo {
 		Fields: schema.GraphQLFieldSpecMap{
 			className: &schema.GraphQLFieldSpec{
 				Name:        p.class.ClassName,
-				Description: fmt.Sprintf("Root call to fetch %s", className),
+				Description: fmt.Sprintf("Root field to fetch %s", className),
 				Func:        p.get,
 				IsRoot:      true,
 			},
@@ -50,19 +53,20 @@ func (p *ParseClass) GraphQLTypeInfo() schema.GraphQLTypeInfo {
 		ti.Fields[fieldName] = &schema.GraphQLFieldSpec{
 			Name:        fn,
 			Description: fmt.Sprintf("Accessor for %s field (%v)", fn, fieldSchema.Type),
-			Func: func(r resolver.Resolver, f *graphql.Field) (interface{}, error) {
-				partial, err := p.resolve(r, fn)
+			Func: func(ctx context.Context, r resolver.Resolver, f *graphql.Field) (interface{}, error) {
+				partial, err := p.resolve(ctx, r, fn)
 				if err != nil {
 					return nil, err
 				}
-				return r.Resolve(partial, f)
+				return r.Resolve(ctx, partial, f)
 			},
 		}
 	}
 	return ti
 }
 
-func (p *ParseClass) resolve(r resolver.Resolver, fieldName string) (interface{}, error) {
+func (p *ParseClass) resolve(ctx context.Context, r resolver.Resolver, fieldName string) (interface{}, error) {
+	log.Println("resolving ===============================================")
 	fieldInfo := p.class.Fields[fieldName]
 	if fieldInfo.Type == "Pointer" {
 		pc, err := NewParseClass(p.client, fieldInfo.TargetClass, p.schema)
@@ -70,17 +74,23 @@ func (p *ParseClass) resolve(r resolver.Resolver, fieldName string) (interface{}
 			return nil, err
 		}
 		objectID := p.Data[fieldName].(map[string]interface{})["objectId"].(string)
+		if t, ok := tracer.FromContext(ctx); ok {
+			t.IncQueries(1)
+		}
 		err = pc.client.GetClass(fieldInfo.TargetClass, objectID, &pc.Data)
 		return pc, err
 	} else if fieldInfo.Type == "ReversePointer" {
 		pc, err := NewParseClass(p.client, fieldInfo.TargetClass, p.schema)
+		if err != nil {
+			return nil, err
+		}
 		fieldName := fieldName[len(fieldInfo.TargetClass)+1:]
 		// TODO(tmc): optimize
 		query := []byte(fmt.Sprintf(`{"__type":"Pointer","className":"%s","objectId":"%s"}`,
 			p.class.ClassName,
 			p.Data["objectId"]))
 		queryEncoded := json.RawMessage(query)
-		return pc.get(r, &graphql.Field{
+		return pc.get(ctx, r, &graphql.Field{
 			Arguments: []graphql.Argument{
 				{
 					Name:  fieldName,
@@ -88,18 +98,12 @@ func (p *ParseClass) resolve(r resolver.Resolver, fieldName string) (interface{}
 				},
 			},
 		})
-		if err != nil {
-			return nil, err
-		}
-		objectID := p.Data[fieldName].(map[string]interface{})["objectId"].(string)
-		err = pc.client.GetClass(fieldInfo.TargetClass, objectID, &pc.Data)
-		return pc, err
 	} else {
 		return p.Data[fieldName], nil
 	}
 }
 
-func (p *ParseClass) get(r resolver.Resolver, f *graphql.Field) (interface{}, error) {
+func (p *ParseClass) get(ctx context.Context, r resolver.Resolver, f *graphql.Field) (interface{}, error) {
 	var results []map[string]interface{}
 
 	whereClause := make(map[string]interface{})
@@ -112,6 +116,9 @@ func (p *ParseClass) get(r resolver.Resolver, f *graphql.Field) (interface{}, er
 	}
 	query := &parse.QueryOptions{
 		Where: string(whereJSON),
+	}
+	if t, ok := tracer.FromContext(ctx); ok {
+		t.IncQueries(1)
 	}
 	if err := p.client.QueryClass(p.class.ClassName, query, &results); err != nil {
 		return nil, err
