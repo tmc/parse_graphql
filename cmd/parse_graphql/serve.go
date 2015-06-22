@@ -38,21 +38,27 @@ func (c *ServeOptions) Execute(args []string) error {
 		return err
 	}
 	mClient := client.WithMasterKey(c.ParseMasterKey)
-	client.TraceOn(log.New(os.Stdout, "[parse]", log.LstdFlags))
+	client.TraceOn(log.New(os.Stdout, "[parse] ", log.LstdFlags))
 	classes, err := mClient.GetFullSchema()
 	if err != nil {
 		return fmt.Errorf("error fetching parse app schema: %v", err)
 	}
-	if err := parse_graphql.DecorateSchema(classes); err != nil {
+	hooks, err := mClient.GetHookFunctions()
+	if err != nil {
+		return fmt.Errorf("error fetching parse app hooks: %v", err)
+	}
+	parseSchema, err := parse_graphql.NewParseSchema(client, classes, hooks)
+	if err != nil {
 		return err
 	}
-	for _, class := range classes {
-		parseClass, err := parse_graphql.NewParseClass(client, class.ClassName, classes)
+	for _, class := range parseSchema.Schema {
+		parseClass, err := parse_graphql.NewParseClass(client, class.ClassName, parseSchema.Schema)
 		if err != nil {
 			return err
 		}
 		schema.Register(parseClass)
 	}
+	schema.Register(parseSchema) // for top-level fields
 	executor := executor.New(schema)
 
 	mux := http.NewServeMux()
