@@ -20,3 +20,17 @@ Help Options:
       -m, --masterKey=  Parse Master Key [$PARSE_MASTER_KEY]
       -w, --restApiKey= Parse REST API Key [$PARSE_REST_API_KEY]
 ```
+
+User signup:
+
+```graphql
+mutation signUp { signUp(username: "foobar", password: "bazbar", email: "foo.bar@gmail.com") { objectId, createdAt, sessionToken } }
+```
+
+User login:
+
+```graphql
+mutation logIn { logIn(username: "foobar", password: "bazbar") { objectId, createdAt, sessionToken } }
+```
+
+

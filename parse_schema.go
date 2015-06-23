@@ -3,6 +3,7 @@ package parse_graphql
 import (
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"strings"
 
 	"github.com/tmc/graphql"
@@ -76,7 +77,15 @@ func (s *ParseSchema) GraphQLTypeInfo() schema.GraphQLTypeInfo {
 	ti := schema.GraphQLTypeInfo{
 		Name:        "ParseSchema",
 		Description: "Parse schema object",
-		Fields:      map[string]*schema.GraphQLFieldSpec{},
+		Fields: map[string]*schema.GraphQLFieldSpec{
+			"signUp": {"signUp", "Sign up a new user.", s.signUp, []graphql.Argument{
+				{Name: "username"}, {Name: "password"}, {Name: "email"},
+			}, true},
+			"logIn": {"logIn", "Authenticate as a user.", s.logIn, []graphql.Argument{
+				{Name: "username"}, {Name: "password"},
+			}, true},
+			"me": {"me", "Return the currently authenticated user.", s.me, nil, true},
+		},
 	}
 
 	for _, hookFunction := range s.hooks {
@@ -90,6 +99,94 @@ func (s *ParseSchema) GraphQLTypeInfo() schema.GraphQLTypeInfo {
 	}
 
 	return ti
+}
+
+func (s *ParseSchema) signUp(ctx context.Context, r resolver.Resolver, f *graphql.Field) (interface{}, error) {
+	var u parse.ParseUser
+	// username
+	userName, ok := f.Arguments.Get("username")
+	if !ok {
+		return nil, fmt.Errorf("'username' field is required.")
+	}
+	u.Username, ok = userName.(string)
+	if !ok {
+		return nil, fmt.Errorf("'username' field must be a string.")
+	}
+
+	// password
+	password, ok := f.Arguments.Get("password")
+	if !ok {
+		return nil, fmt.Errorf("'password' field is required.")
+	}
+	u.Password, ok = password.(string)
+	if !ok {
+		return nil, fmt.Errorf("'password' field must be a string.")
+	}
+
+	// email
+	email, ok := f.Arguments.Get("email")
+	if !ok {
+		return nil, fmt.Errorf("'email' field is required.")
+	}
+	u.Email, ok = email.(string)
+	if !ok {
+		return nil, fmt.Errorf("'email' field must be a string.")
+	}
+
+	return s.client.CreateUser(u)
+}
+
+func (s *ParseSchema) logIn(ctx context.Context, r resolver.Resolver, f *graphql.Field) (interface{}, error) {
+	// username
+	usernamei, ok := f.Arguments.Get("username")
+	if !ok {
+		return nil, fmt.Errorf("'username' field is required.")
+	}
+	username, ok := usernamei.(string)
+	if !ok {
+		return nil, fmt.Errorf("'username' field must be a string.")
+	}
+
+	// password
+	passwordi, ok := f.Arguments.Get("password")
+	if !ok {
+		return nil, fmt.Errorf("'password' field is required.")
+	}
+	password, ok := passwordi.(string)
+	if !ok {
+		return nil, fmt.Errorf("'password' field must be a string.")
+	}
+
+	var u parse.ParseUser
+	err := s.client.LoginUser(username, password, &u)
+	return u, err
+}
+
+// client returns a *parse.Client that may be authed as a user if the provided context
+// contains an http request with the X-Parse-Session-Token header set.
+func (s *ParseSchema) authedClient(ctx context.Context) *parse.Client {
+	r := ctx.Value("http_request")
+	if r != nil {
+		request, ok := r.(*http.Request)
+		if ok && request.Header.Get("X-Parse-Session-Token") != "" {
+			return s.client.WithSessionToken(request.Header.Get("X-Parse-Session-Token"))
+		}
+	}
+	return s.client
+}
+
+func (s *ParseSchema) me(ctx context.Context, r resolver.Resolver, f *graphql.Field) (interface{}, error) {
+	c := s.authedClient(ctx)
+	u, err := c.CurrentUser()
+	if err != nil {
+		return nil, err
+	}
+	pc, err := NewParseClass(c, "_User", s.Schema)
+	if err != nil {
+		return nil, err
+	}
+	pc.Data = u
+	return pc, nil
 }
 
 func mkHookFieldFunc(client *parse.Client, schema map[string]*parse.Schema, hookName string, data map[string]interface{}) schema.GraphQLFieldFunc {
