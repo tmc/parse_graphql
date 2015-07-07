@@ -1,0 +1,19 @@
+{
+  "name": "Parse GraphQL Server",
+  "description": "An HTTP server that exposes your parse schema as GraphQL",
+  "respository": "https://github.com/tmc/parse_graphql",
+  "env": {
+    "PARSE_APPLICATION_ID": {
+            "description": "Your Application ID",
+            "value": ""
+    },
+    "PARSE_REST_API_KEY": {
+            "description": "Your REST API Key",
+            "value": ""
+    },
+    "PARSE_MASTER_KEY": {
+            "description": "Your Master Key (used to fetch schema and Cloud Code functions).",
+            "value": ""
+    }
+  }
+}

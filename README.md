@@ -1,6 +1,8 @@
 parse_graphql
 =============
 
+[![Deploy](https://www.herokucdn.com/deploy/button.png)](https://heroku.com/deploy)
+
 Expose a Parse app's schema as a graphql endpoint.
 
 ```sh
