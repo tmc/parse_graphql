@@ -177,7 +177,8 @@ func (s *ParseSchema) authedClient(ctx context.Context) *parse.Client {
 
 func (s *ParseSchema) me(ctx context.Context, r resolver.Resolver, f *graphql.Field) (interface{}, error) {
 	c := s.authedClient(ctx)
-	u, err := c.CurrentUser()
+	var user parse.ParseUser
+	err := c.CurrentUser(&user)
 	if err != nil {
 		return nil, err
 	}
@@ -185,8 +186,8 @@ func (s *ParseSchema) me(ctx context.Context, r resolver.Resolver, f *graphql.Fi
 	if err != nil {
 		return nil, err
 	}
-	pc.Data = u
-	return pc, nil
+	pc.Data, err = tomap(user)
+	return pc, err
 }
 
 func mkHookFieldFunc(client *parse.Client, schema map[string]*parse.Schema, hookName string, data map[string]interface{}) schema.GraphQLFieldFunc {
@@ -231,4 +232,14 @@ func mkHookFieldFunc(client *parse.Client, schema map[string]*parse.Schema, hook
 		return result.Result, nil
 
 	}
+}
+
+// tomap attempts to convert a value to a map[string]interface via encoding/json
+func tomap(value interface{}) (map[string]interface{}, error) {
+	asjson, err := json.Marshal(value)
+	if err != nil {
+		return nil, err
+	}
+	var asmap map[string]interface{}
+	return asmap, json.Unmarshal(asjson, &asmap)
 }
