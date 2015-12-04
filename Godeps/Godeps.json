@@ -1,0 +1,22 @@
+{
+	"ImportPath": "github.com/tmc/parse_graphql",
+	"GoVersion": "go1.5.2",
+	"Deps": [
+		{
+			"ImportPath": "github.com/davecgh/go-spew/spew",
+			"Rev": "5215b55f46b2b919f50a1df0eaa5886afe4e3b3d"
+		},
+		{
+			"ImportPath": "github.com/tmc/graphql",
+			"Rev": "7fe940d1daff4c1cab29aa574c48389c9f5f898d"
+		},
+		{
+			"ImportPath": "github.com/tmc/parse",
+			"Rev": "c969fe0599f3f006d6e84fe794d793a2d9da0f20"
+		},
+		{
+			"ImportPath": "golang.org/x/net/context",
+			"Rev": "d5cd7348bfebdf7dbb6dbb18fa488525f9024293"
+		}
+	]
+}
